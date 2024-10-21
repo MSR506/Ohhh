@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Keyframes Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 1.6em;
+      font-size: 1em;
+    }
+
+    label, input {
+      margin: 1em 0;
+      width: 15em;
+    }
+
+    .result {
+      margin-top: 2em;
+      white-space: pre-wrap;
+      font-family: monospace;
+      background-color: #f4f4f4;
+      padding: 1em;
+      border-radius: .4em;
+    }
+
+    .error {
+      color: red;
+      margin-top: 1em;
+    }
+
+    button {
+      margin-top: 1em;
+      width: 15.5em;
+    }
+
+    .hidden {
+      display: none;
+    }
+    
+    #section-switcher {
+      width: 20em;
+      padding: 0.2em;
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+      margin: 1em;
+    }
+
+    #section-switcher:focus {
+      border-color: #888;
+      outline: none;
+      background-color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <label for="section-switcher">Choose an option:</label> <br>
+  <select id="section-switcher" onchange="switchSection()">
+    <option value="keyframes-section">Adjust Keyframes with Pause</option>
+    <option value="intervals-section">Get Keyframes by Time Intervals</option>
+  </select>
+  
+  <hr>
+
+  <div id="intervals-section" class="hidden">
+    <h3>Calculate Keyframes using Time Intervals</h3>
+    <label for="intervals">Enter time intervals in milliseconds <br>(comma-separated, minimum 2 items):</label> <br>
+    <input type="text" id="intervals" placeholder="e.g. 200, 400, 600">
+    <button onclick="calculateKeyframesByIntervals()">Generate Keyframes</button>
+  </div>
+
+  <div id="keyframes-section">
+    <h3>Modify Keyframe Animation with a Pause</h3>
+    <label for="keyframes">Enter keyframe % values <br>(comma-separated, excluding 0% and 100%):</label> <br>
+    <input type="text" id="keyframes" placeholder="e.g. 25, 50, 75"> <br>
+
+    <label for="duration">Enter duration of animation in milliseconds:</label> <br>
+    <input type="number" id="duration" placeholder="e.g. 1000"> <br> <br>
+
+    <label for="pause">Enter pause duration after animation in milliseconds:</label> <br>
+    <input type="number" id="pause" placeholder="e.g. 4000"> <br>
+
+    <button onclick="generateKeyframesByPercentage()">Generate Keyframes</button>
+  </div>
+
+  <div id="output" class="result"></div>
+  <p id="total-duration"></p>
+  <p id="error" class="error"></p>
+
+  <button onclick="clearAll()">Clear All</button>
+
+  <script>
+    function clearError() {
+      document.getElementById('error').textContent = '';
+      document.getElementById('output').textContent = '';
+      document.getElementById('total-duration').textContent = '';
+    }
+
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+    }
+
+    function isValidNumber(value) {
+      return !isNaN(value) && value !== '' && value !== null;
+    }
+
+    function calculateKeyframesByIntervals() {
+      clearError();
+
+      const input = document.getElementById('intervals').value;
+      const intervals = input.split(',')
+        .map(item => item.trim())
+        .filter(item => item !== '')
+        .map(Number);
+
+      if (intervals.length < 2) {
+        showError('Please enter at least two valid intervals.');
+        return;
+      }
+
+      if (intervals.some(interval => !isValidNumber(interval) || interval <= 0)) {
+        showError('Please enter valid numeric intervals.');
+        return;
+      }
+
+      const totalDuration = intervals.reduce((a, b) => a + b, 0);
+      let accumulatedTime = 0;
+      let keyframePercentages = [];
+
+      intervals.forEach((interval) => {
+        accumulatedTime += interval;
+        let percentage = (accumulatedTime / totalDuration) * 100;
+        keyframePercentages.push(`${Math.round(percentage * 1000) / 1000}% {\n\n    }`);
+      });
+
+      const keyframesOutput = `
+@keyframes name {
+  0% {\n\n    }
+  ${keyframePercentages.join('\n  ')}
+}`;
+
+      document.getElementById('output').textContent = keyframesOutput;
+      document.getElementById('total-duration').textContent = `Total duration: ${totalDuration} ms`;
+    }
+
+    function generateKeyframesByPercentage() {
+      clearError();
+
+      const keyframesInput = document.getElementById('keyframes').value;
+      const duration = parseInt(document.getElementById('duration').value);
+      const pause = parseInt(document.getElementById('pause').value) || 0;
+
+      if (!isValidNumber(duration) || duration <= 0) {
+        showError('Please enter a valid duration.');
+        return;
+      }
+
+      let keyframes = keyframesInput
+        .split(',')
+        .map(value => value.trim())
+        .filter(value => value !== '')
+        .map(Number);
+
+      if (keyframes.length < 1 || keyframes.some(value => !isValidNumber(value) || value <= 0 || value >= 100)) {
+        showError('Keyframe values must be valid numbers between 0 and 100 (excluding 0% and 100%).');
+        return;
+      }
+
+      keyframes.sort((a, b) => a - b);
+
+      const totalDuration = duration + pause;
+      const adjustedKeyframes = keyframes.map(value => Math.round((value * duration) / totalDuration * 1000) / 1000);
+
+      let keyframeCSS = '@keyframes name {\n';
+      keyframeCSS += '    0% {\n\n    }\n';
+
+      adjustedKeyframes.forEach((value) => {
+        keyframeCSS += `    ${value}% {\n\n    }\n`;
+      });
+
+      keyframeCSS += '    100% {\n\n    }\n';
+      keyframeCSS += '}';
+
+      document.getElementById('output').textContent = keyframeCSS;
+      document.getElementById('total-duration').textContent = `Total duration: ${totalDuration} ms`;
+    }
+
+    function clearAll() {
+      document.getElementById('intervals').value = '';
+      document.getElementById('keyframes').value = '';
+      document.getElementById('duration').value = '';
+      document.getElementById('pause').value = '';
+      clearError();
+    }
+
+    function switchSection() {
+      clearAll();
+      const selectedSection = document.getElementById('section-switcher').value;
+
+      document.getElementById('keyframes-section').classList.add('hidden');
+      document.getElementById('intervals-section').classList.add('hidden');
+
+      document.getElementById(selectedSection).classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
