@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Repo Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    #app {
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    .button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .button.red {
+      background-color: #dc3545;
+    }
+    .button:disabled {
+      background-color: #ddd;
+      cursor: not-allowed;
+    }
+    .repo {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: #f9f9f9;
+    }
+    #repo-list {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="login" style="display: none;">
+      <h2>GitHub Login</h2>
+      <label>GitHub Token:</label><br>
+      <input type="text" id="token" placeholder="Enter your GitHub token"><br><br>
+      <label>GitHub Username:</label><br>
+      <input type="text" id="username" placeholder="Enter your GitHub username"><br><br>
+      <button class="button" onclick="saveCredentials()">Save & Continue</button>
+    </div>
+
+    <div id="manager" style="display: none;">
+      <h2>Your Repositories</h2>
+      <button class="button" onclick="createRepo()">Create Repository</button>
+      <div id="repo-list"></div>
+    </div>
+  </div>
+
+  <script>
+    // Check for credentials in localStorage
+    const token = localStorage.getItem('github_token');
+    const username = localStorage.getItem('github_username');
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!token || !username) {
+        document.getElementById('login').style.display = 'block';
+      } else {
+        document.getElementById('manager').style.display = 'block';
+        fetchRepos();
+      }
+    });
+
+    function saveCredentials() {
+      const tokenInput = document.getElementById('token').value;
+      const usernameInput = document.getElementById('username').value;
+      if (tokenInput && usernameInput) {
+        localStorage.setItem('github_token', tokenInput);
+        localStorage.setItem('github_username', usernameInput);
+        location.reload();
+      } else {
+        alert('Both fields are required!');
+      }
+    }
+
+    async function fetchRepos() {
+      const headers = { Authorization: `Bearer ${token}` };
+      const response = await fetch(`https://api.github.com/users/${username}/repos`, { headers });
+      const repos = await response.json();
+
+      const repoList = document.getElementById('repo-list');
+      repoList.innerHTML = '';
+      repos.forEach(repo => {
+        const div = document.createElement('div');
+        div.className = 'repo';
+        div.innerHTML = `
+          <span>${repo.name}</span>
+          <div>
+            <button class="button" onclick="deleteRepo('${repo.name}')">Delete</button>
+            <button class="button" onclick="recreateRepo('${repo.name}', ${repo.private})">Recreate</button>
+          </div>
+        `;
+        repoList.appendChild(div);
+      });
+    }
+
+    async function createRepo() {
+      const repoName = prompt("Enter repository name:");
+      if (!repoName) return;
+      const isPrivate = confirm("Should the repository be private?");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      };
+      const body = JSON.stringify({
+        name: repoName,
+        private: isPrivate
+      });
+      const response = await fetch(`https://api.github.com/user/repos`, { method: 'POST', headers, body });
+      if (response.ok) {
+        alert("Repository created successfully!");
+        fetchRepos();
+      } else {
+        alert("Failed to create repository.");
+      }
+    }
+
+    async function deleteRepo(repoName) {
+      const headers = { Authorization: `Bearer ${token}` };
+      const response = await fetch(`https://api.github.com/repos/${username}/${repoName}`, { method: 'DELETE', headers });
+      if (response.ok) {
+        alert("Repository deleted successfully!");
+        fetchRepos();
+      } else {
+        alert("Failed to delete repository.");
+      }
+    }
+
+    async function recreateRepo(repoName, isPrivate) {
+      await deleteRepo(repoName);
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      };
+      const body = JSON.stringify({
+        name: repoName,
+        private: isPrivate
+      });
+      const response = await fetch(`https://api.github.com/user/repos`, { method: 'POST', headers, body });
+      if (response.ok) {
+        alert("Repository recreated successfully!");
+        fetchRepos();
+      } else {
+        alert("Failed to recreate repository.");
+      }
+    }
+  </script>
+</body>
+</html>
